@@ -20,6 +20,7 @@ class LoanAdjustmentController < ApplicationController
 
   def accept
     @loan.update(amount: @adjustment.adjusted_amount, interest_rate: @adjustment.adjusted_interest_rate)
+    @loan.user.wallet.credit(@adjustment.adjusted_amount.to_f)
     @loan.confirm!
     redirect_to loans_path, notice: 'Loan adjustment approved successfully.'
   end

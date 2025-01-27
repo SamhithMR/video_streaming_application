@@ -3,12 +3,14 @@ class LoansController < ApplicationController
     before_action :set_loan, only: [:show, :update, :repay, :approve, :reject]
   
     def index
-      if current_user.admin? 
-        @loans = Loan.includes(:user).where(state: 'requested')
+      if current_user.admin?
+        @loans = Loan.includes(:user).all
+        @loan_requests = Loan.where(state: "requested")
       else
         @loans = Loan.where(user: current_user)
       end
     end
+    
   
     def show; end
   
@@ -44,6 +46,7 @@ class LoansController < ApplicationController
    
     def approve
       if @loan.update(state: 'approved')
+        @loan.user.wallet.credit(@loan.amount.to_f)
         redirect_to loans_path, notice: 'Loan approved successfully.'
       else
         redirect_to loans_path, alert: 'Unable to approve loan.'
@@ -62,10 +65,6 @@ class LoansController < ApplicationController
   
     def set_loan
       @loan = Loan.find(params[:id])
-    end
-  
-    def loan_adjustment_params
-      params.require(:loan_adjustment).permit(:adjusted_amount, :adjusted_interest_rate)
     end
   
     def loan_params

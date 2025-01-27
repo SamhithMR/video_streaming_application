@@ -7,7 +7,7 @@
   </div>
 
   <h2 class="text-xl font-bold mt-6 mb-4">Wallet</h2>
-  <p class="mb-4"><span class="font-semibold">Balance:</span> <%= number_to_currency(@wallet&.balance || 0) %></p>
+  <p class="mb-4"><span class="font-semibold">Balance:</span> <%= number_to_currency(@user&.wallet&.balance || 0) %></p>
 
   <%= link_to 'Edit Profile', edit_user_registration_path, class: 'px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600' %>
 </div>
