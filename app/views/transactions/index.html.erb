@@ -1,8 +1,5 @@
-s<!-- app/views/wallets/show.html.erb -->
-<h1>Your Wallet</h1>
-<p>Balance: <%= @wallet.balance %></p>
+<h1>Wallet Transactions</h1>
 
-<h2>Transaction History</h2>
 <table>
   <thead>
     <tr>
@@ -12,6 +9,7 @@ s<!-- app/views/wallets/show.html.erb -->
       <th>Date</th>
     </tr>
   </thead>
+  <tbody>
     <% @transactions.each do |transaction| %>
       <tr>
         <td><%= transaction.amount %></td>

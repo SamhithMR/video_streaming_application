@@ -11,3 +11,29 @@
 
   <%= link_to 'Edit Profile', edit_user_registration_path, class: 'px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600' %>
 </div>
+
+
+<% if @transactions.present? %>
+  <h1>Wallet Transactions</h1>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Amount</th>
+        <th>Type</th>
+        <th>Description</th>
+        <th>Date</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% @transactions.each do |transaction| %>
+        <tr>
+          <td><%= transaction.amount %></td>
+          <td><%= transaction.transaction_type %></td>
+          <td><%= transaction.description %></td>
+          <td><%= transaction.created_at %></td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+<% end %>

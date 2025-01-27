@@ -4,6 +4,8 @@ class User < ApplicationRecord
   has_one :wallet, dependent: :destroy
   has_many :loans, dependent: :destroy
 
+  has_many :issued_loans, class_name: 'Loan', foreign_key: 'admin_user_id'
+
   enum :role, { user: 0, admin: 1}, prefix: true
 
   validates :email, presence: true, uniqueness: true, format: { with: URI::MailTo::EMAIL_REGEXP }

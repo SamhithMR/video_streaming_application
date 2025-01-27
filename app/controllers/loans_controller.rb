@@ -1,6 +1,6 @@
 class LoansController < ApplicationController
     before_action :authenticate_user!
-    before_action :set_loan, only: [:show, :update, :repay, :approve, :reject]
+    before_action :set_loan, only: [:show, :update, :repay, :approve, :reject, :open, :reject_approval]
   
     def index
       if current_user.admin?
@@ -37,16 +37,19 @@ class LoansController < ApplicationController
     end
   
     def repay
-      if @loan.repay(params[:amount].to_f)
-        redirect_to @loan, notice: 'Loan repaid successfully.'
+      if @loan.update(state: "closed")
+        current_user.wallet.transfer_amount(@loan.amount, @loan.admin_user_id)
+        redirect_to loans_path, notice: 'Loan repaid successfully.'
       else
-        redirect_to @loan, alert: @loan.errors.full_messages.to_sentence
+        redirect_to loans_path, alert: 'Unable to repaly loan.'
       end
     end
    
     def approve
       if @loan.update(state: 'approved')
-        @loan.user.wallet.credit(@loan.amount.to_f)
+        current_user.wallet.transfer_amount(@loan.amount.to_f, @loan.user.id)
+        @loan.admin_user_id = current_user.id
+        @loan.save
         redirect_to loans_path, notice: 'Loan approved successfully.'
       else
         redirect_to loans_path, alert: 'Unable to approve loan.'
@@ -55,10 +58,31 @@ class LoansController < ApplicationController
 
     def reject
       if @loan.update(state: 'rejected')
+        @loan.admin_user_id = current_user.id
+        @loan.save
         redirect_to loans_path, notice: 'Loan rejected successfully.'
       else
         redirect_to loans_path, alert: 'Unable to reject loan.'
       end
+    end
+
+    def reject_approval
+      if @loan.update(state: "rejected")
+        redirect_to loans_path, notice: 'Loan approved successfully.'
+      else
+        redirect_to loans_path, alert: 'Unable to approve loan.'
+      end
+    end
+
+    def open
+      if @loan.update(state: 'open')
+        redirect_to loans_path, notice: 'Loan approved successfully.'
+      else
+        redirect_to loans_path, alert: 'Unable to approve loan.'
+      end
+    end
+
+    def close
     end
   
     private

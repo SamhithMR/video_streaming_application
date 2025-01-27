@@ -22,6 +22,8 @@ gem 'aasm'
 
 # sidekiq for background jobs
 gem 'sidekiq'
+gem 'sidekiq-cron'
+
 
 # device for authentication
 gem 'devise'

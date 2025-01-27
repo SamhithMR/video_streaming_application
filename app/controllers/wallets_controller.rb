@@ -2,7 +2,8 @@ class WalletsController < ApplicationController
     before_action :set_wallet, only: [:show]
   
     def show
-      @user = @wallet.user
+      @wallet = current_user.wallet
+      @transactions = @wallet.transactions
     end
   
     private

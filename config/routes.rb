@@ -8,18 +8,19 @@ Rails.application.routes.draw do
       patch :adjust
       patch :accept_adjustment
       get :adjustment_form
+      patch :repay
+      patch :open
+      patch :reject_approval
     end
     resources :loan_adjustments, only: [:create, :update]
   end
 
   root to: 'loans#index'
 
-  namespace :admin do
-    resources :users, only: [:index, :show, :destroy]
-    resources :loans, only: [:index, :show, :update]
+  resources :wallets, only: [:show] do
+    resources :transactions, only: [:index]
   end
-
-  get '/wallet/:id', to: 'wallets#show'
+  
   get '/user', to: 'users#show'
 
   resources :loan_adjustment, only: [:new, :create] do
@@ -28,5 +29,12 @@ Rails.application.routes.draw do
       patch :reject
     end
   end
+
+  
+
+  resources :admins, only: [:new, :create]
+
+  require 'sidekiq/web'
+  mount Sidekiq::Web => '/sidekiq'
   
 end

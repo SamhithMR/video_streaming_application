@@ -49,6 +49,7 @@
               <th class="border px-4 py-2">User Name</th>
               <th class="border px-4 py-2">Email</th>
               <th class="border px-4 py-2">Requested Amount</th>
+              <th class="border px-4 py-2">Loan status</th>
           </tr>
         </thead>
         <tbody>
@@ -57,7 +58,8 @@
                 <td class="border px-4 py-2"><%= loan.id %></td>
                 <td class="border px-4 py-2"><%= loan.user.name %></td>
                 <td class="border px-4 py-2"><%= loan.user.email %></td>
-                <td class="border px-4 py-2"><%= loan.amount %></td>
+                <td class="border px-4 py-2"><%= number_to_currency(loan.amount) %></td>
+                <td class="border px-4 py-2"><%= loan.state %></td>
               </tr>
           <% end %>
         </tbody>
@@ -121,6 +123,26 @@
                         </div>
                       <% end %>
                     <% end %>
+
+  
+                    <% if loan.state == 'approved' %>
+                      
+                      <%= form_with(url: open_loan_path(id: loan.id), method: :patch, local: true) do |form| %>
+                        <%= form.submit 'Accept Loan', class: 'btn btn-success' %>
+                      <% end %>
+
+                      <%= form_with(url: reject_approval_loan_path(id: loan.id), method: :patch, local: true) do |form| %>
+                        <%= form.submit 'Reject Loan', class: 'btn btn-success' %>
+                      <% end %>
+
+                    <% end %>
+
+
+                    <% if loan.state == "open" %>
+                      <td class="border px-4 py-2">
+                        <%= button_to 'Repay Loan', repay_loan_path(loan), method: :patch, class: 'bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600' %>
+                      </td>
+                    <% end %>
                   </td>              
                 </tr>
               <% end %>
@@ -146,6 +168,12 @@
       <li>
         <%= button_to 'Sign Out', destroy_user_session_path, method: :delete, data: { turbo_confirm: 'Are you sure?' }, class: 'block px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600' %>
       </li>
+      <% if current_user&.admin? %>
+        <li>
+          <%= button_to 'Create New Admin', new_admin_path, method: :get, class: 'block px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600' %>
+        </li>
+      <% end %>      
+
     </ul>
   </div>
 </div>
