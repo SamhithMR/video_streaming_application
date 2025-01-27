@@ -25,7 +25,7 @@ class Loan < ApplicationRecord
     end
 
     event :confirm do
-      transitions from: :approved, to: :open
+      transitions from: [:waiting_for_adjustment_acceptance, :approved], to: :open
     end
 
     event :close do
@@ -40,4 +40,31 @@ class Loan < ApplicationRecord
       transitions from: :waiting_for_adjustment_acceptance, to: :readjustment_requested
     end
   end
+
+  def debit_admin_wallet
+    admin_wallet = Wallet.find_by(user_id: 1)
+    admin_wallet.debit(amount)
+  end
+
+  def credit_user_wallet
+    user_wallet = user.wallet
+    user_wallet.credit(amount)
+  end
+
+  def repay(amount)
+    user_wallet = user.wallet
+    admin_wallet = Wallet.find_by(user_id: 1)
+  
+    total_repay_amount = amount + calculate_interest
+  
+    if user_wallet.balance >= total_repay_amount
+      user_wallet.debit(total_repay_amount)
+      admin_wallet.credit(total_repay_amount)
+      update(state: :closed)
+    else
+      errors.add(:base, "Insufficient funds")
+    end
+  end
+  
+  
 end

@@ -1,0 +1,126 @@
+<div class="max-w-6xl mx-auto p-6 bg-white shadow rounded-lg flex">
+  <!-- Main Content -->
+  <% if current_user.admin? %> 
+    <h1>Loan Requests</h1>
+    <table class="table-auto w-full border-collapse">
+        <thead>
+            <tr>
+                <th class="border px-4 py-2">ID</th>
+                <th class="border px-4 py-2">User Name</th>
+                <th class="border px-4 py-2">Email</th>
+                <th class="border px-4 py-2">Requested Amount</th>
+                <th class="border px-4 py-2">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            <% @loans&.each do |loan| %>
+                <tr>
+                <td class="border px-4 py-2"><%= loan.id %></td>
+                <td class="border px-4 py-2"><%= loan.user.name %></td>
+                <td class="border px-4 py-2"><%= loan.user.email %></td>
+                <td class="border px-4 py-2"><%= loan.amount %></td>
+                <td class="border px-4 py-2">
+                    <%= form_with model: loan, url: approve_loan_path(loan), method: :patch, local: true do |form| %>
+                    <%= form.submit 'Approve', class: 'bg-green-500 text-white py-2 px-4 rounded hover:bg-green-600' %>
+                    <% end %>
+
+                    <%= form_with model: loan, url: reject_loan_path(loan), method: :patch, local: true do |form| %>
+                    <%= form.submit 'Reject', class: 'bg-red-500 text-white py-2 px-4 rounded hover:bg-red-600' %>
+                    <% end %>
+
+                    <%= form_with model: loan, url: adjust_loan_path(loan), method: :patch, local: true do |form| %>
+                        <%= link_to 'Request Adjustment', new_loan_adjustment_path(id: loan.id), class: 'bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600' %>
+                    <% end %>
+                </td>
+                </tr>
+            <% end %>
+        </tbody>
+    </table>
+    <% else %>
+    <div class="w-3/4 pr-4">
+    <h1 class="text-2xl font-bold mb-4">Loans</h1>
+
+    <% if @loans&.any? %>
+        <table class="w-full text-left border-collapse border border-gray-300">
+        <table class="table-auto w-full border-collapse border border-gray-300">
+          <thead>
+            <tr>
+              <th class="border border-gray-300 p-2">ID</th>
+              <th class="border border-gray-300 p-2">Amount</th>
+              <th class="border border-gray-300 p-2">Interest Rate</th>
+              <th class="border border-gray-300 p-2">State</th>
+              <th class="border border-gray-300 p-2">Adjustments</th>
+              <th class="border border-gray-300 p-2">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% @loans.each do |loan| %>
+              <tr>
+                <td class="border border-gray-300 p-2"><%= loan.id %></td>
+                <td class="border border-gray-300 p-2"><%= number_to_currency(loan.amount) %></td>
+                <td class="border border-gray-300 p-2"><%= loan.interest_rate %> %</td>
+                <td class="border border-gray-300 p-2"><%= loan.state %></td>
+                <td class="border border-gray-300 p-2">
+                  <% if loan.loan_adjustments.any? %>
+                    <ul>
+                      <% loan.loan_adjustments.each do |adjustment| %>
+                        <li>
+                          <strong>Adjusted Amount:</strong> <%= number_to_currency(adjustment.adjusted_amount) %>, 
+                          <strong>Adjusted Rate:</strong> <%= adjustment.adjusted_interest_rate %> %
+                        </li>
+                      <% end %>
+                    </ul>
+                  <% else %>
+                    No adjustments requested
+                  <% end %>
+                </td>
+                <td class="border border-gray-300 p-2">
+                  <%= link_to 'View', loan_path(loan), class: 'px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600' %>
+                
+                  <% loan.loan_adjustments&.each do |loan_adjustment| %>
+                    <% if loan_adjustment.present? && loan_adjustment.loan.state == 'waiting_for_adjustment_acceptance' %>
+                      <div class="mt-2">
+                        <%= form_with(url: accept_loan_adjustment_path(id: loan.id, adjustment_id: loan_adjustment.id), method: :patch, local: true) do |form| %>
+                          <%= form.submit 'Accept Adjustment', class: 'btn btn-success' %>
+                        <% end %>
+                        
+                        <%= form_with(url: reject_loan_adjustment_path(id: loan.id, adjustment_id: loan_adjustment.id), method: :patch, local: true) do |form| %>
+                          <%= form.submit 'Reject Adjustment', class: 'btn btn-danger' %>
+                        <% end %>
+                      
+                      </div>
+                    <% end %>
+                  <% end %>
+                </td>              
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      
+        <%= link_to 'Request Loan', new_loan_path, class: 'mt-4 inline-block px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600' %>
+    <% else %>
+        <p>No loans found.</p>
+    <% end %>
+
+
+    </div>
+<% end %>
+
+  <!-- Right Sidebar -->
+  <div class="w-1/4 pl-4 bg-gray-100 p-4 rounded-lg shadow">
+    <h2 class="text-lg font-bold mb-4">User Profile</h2>
+    <ul class="space-y-2">
+      <li>
+        <%= link_to 'View Profile', user_path(current_user), class: 'block px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600' %>
+      </li>
+      <li>
+        <%= link_to 'Edit Profile', edit_user_registration_path, class: 'block px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600' %>
+      </li>
+      <li>
+        <%= button_to 'Sign Out', destroy_user_session_path, method: :delete, data: { turbo_confirm: 'Are you sure?' }, class: 'block px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600' %>
+      </li>
+    </ul>
+  </div>
+</div>
+
+

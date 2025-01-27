@@ -1,0 +1,26 @@
+<h1>Loan Adjustments</h1>
+
+<% if @adjustments.any? %>
+  <table>
+    <thead>
+      <tr>
+        <th>Adjusted Amount</th>
+        <th>Adjusted Interest Rate</th>
+        <th>Created At</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% @adjustments.each do |adjustment| %>
+        <tr>
+          <td><%= number_to_currency(adjustment.adjusted_amount) %></td>
+          <td><%= adjustment.adjusted_interest_rate %>%</td>
+          <td><%= adjustment.created_at %></td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+<% else %>
+  <p>No adjustments found.</p>
+<% end %>
+
+<%= link_to 'Back to Loan', loan_path(@loan), class: 'btn btn-secondary' %>

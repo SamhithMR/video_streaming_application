@@ -1,0 +1,26 @@
+<h1>Loan Details</h1>
+
+<p>Loan Amount: <%= @loan.amount %></p>
+<p>Interest Rate: <%= @loan.interest_rate %></p>
+<p>State: <%= @loan.state %></p>
+
+<h2>Adjustments</h2>
+<table class="table-auto w-full border-collapse">
+  <thead>
+    <tr>
+      <th class="border px-4 py-2">Adjusted Amount</th>
+      <th class="border px-4 py-2">Adjusted Interest Rate</th>
+      <th class="border px-4 py-2">Created At</th>
+    </tr>
+  </thead>
+  <tbody>
+    <% @loan.loan_adjustments.each do |adjustment| %>
+      <tr>
+        <td class="border px-4 py-2"><%= adjustment.adjusted_amount %></td>
+        <td class="border px-4 py-2"><%= adjustment.adjusted_interest_rate %></td>
+        <td class="border px-4 py-2"><%= adjustment.created_at %></td>
+      </tr>
+    <% end %>
+  </tbody>
+</table>
+

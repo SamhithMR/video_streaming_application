@@ -1,0 +1,6 @@
+<h1>Loan Adjustment Details</h1>
+<p><strong>Adjusted Amount:</strong> <%= number_to_currency(@adjustment.adjusted_amount) %></p>
+<p><strong>Adjusted Interest Rate:</strong> <%= @adjustment.adjusted_interest_rate %>%</p>
+<p><strong>Created At:</strong> <%= @adjustment.created_at %></p>
+
+<%= link_to 'Back to Adjustments', loan_loan_adjustments_path(@loan), class: 'btn btn-secondary' %>

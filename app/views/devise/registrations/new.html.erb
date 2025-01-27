@@ -1,0 +1,27 @@
+<div class="min-h-screen flex items-center justify-center bg-gray-100">
+  <div class="max-w-md w-full bg-white p-6 rounded-lg shadow">
+    <h2 class="text-2xl font-bold mb-6 text-center">Sign Up</h2>
+    <%= form_with(model: resource, url: registration_path(resource_name), local: true) do |f| %>
+      <div class="mb-4">
+        <%= f.label :name, class: "block text-sm font-medium text-gray-700" %>
+        <%= f.text_field :name, class: "mt-1 block w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500", required: true %>
+      </div>
+      <div class="mb-4">
+        <%= f.label :email, class: "block text-sm font-medium text-gray-700" %>
+        <%= f.email_field :email, class: "mt-1 block w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500", required: true %>
+      </div>
+      <div class="mb-4">
+        <%= f.label :password, class: "block text-sm font-medium text-gray-700" %>
+        <%= f.password_field :password, class: "mt-1 block w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500", required: true %>
+      </div>
+      <div class="mb-6">
+        <%= f.label :password_confirmation, class: "block text-sm font-medium text-gray-700" %>
+        <%= f.password_field :password_confirmation, class: "mt-1 block w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500", required: true %>
+      </div>
+      <div>
+        <%= f.submit "Sign Up", class: "w-full py-2 px-4 bg-blue-500 text-white font-bold rounded-lg hover:bg-blue-600" %>
+      </div>
+    <% end %>
+    <p class="mt-4 text-sm text-center">Already have an account? <%= link_to "Log In", new_session_path(resource_name), class: "text-blue-500 hover:underline" %></p>
+  </div>
+</div>
