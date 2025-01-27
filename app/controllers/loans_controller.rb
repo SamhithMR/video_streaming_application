@@ -20,10 +20,11 @@ class LoansController < ApplicationController
   
     def create
       @loan = current_user.loans.build(loan_params)
+      @loan.admin_user_id = User.where(role: :admin).first.id
       if @loan.save
         redirect_to @loan, notice: 'Loan request created successfully.'
       else
-        render :new
+        redirect_to loans_path, alert: 'Unable to create loan.'
       end
     end
   
