@@ -1,0 +1,40 @@
+version: "3.8"
+
+services:
+  app:
+    build: .
+    container_name: diatoz_app
+    restart: always
+    volumes:
+      - ".:/app"
+    ports:
+      - "3000:3000"
+    depends_on:
+      - db
+      - redis
+    environment:
+      DATABASE_URL: "postgres://postgres:password@db:5432/diatoz_dev"
+      REDIS_URL: "redis://redis:6379/1"
+
+  db:
+    image: postgres
+    container_name: diatoz_db
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: diatoz_dev
+    volumes:
+      - "postgres_data:/var/lib/postgresql/data"
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: redis
+    container_name: diatoz_redis
+    restart: always
+    ports:
+      - "6379:6379"
+
+volumes:
+  postgres_data:
