@@ -1,33 +1,44 @@
 {
-  "name": "livestream-server",
-  "version": "0.0.1",
-  "description": "A conference call implementation using WebRTC, Socket.io and Node.js.",
-  "main": "src/app.js",
+  "name": "video_streaming_application",
+  "version": "0.1.0",
+  "private": true,
   "dependencies": {
-    "express": "^4.21.0",
-    "serve-favicon": "^2.5.0",
-    "socket.io": "^4.7.5"
-  },
-  "devDependencies": {
-    "nodemon": "^2.0.20"
+    "@testing-library/dom": "^10.4.0",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/user-event": "^13.5.0",
+    "@types/jest": "^27.5.2",
+    "@types/node": "^16.18.126",
+    "@types/react": "^19.1.5",
+    "@types/react-dom": "^19.1.5",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "react-scripts": "5.0.1",
+    "typescript": "^4.9.5",
+    "web-vitals": "^2.1.4"
   },
   "scripts": {
-    "watch": "nodemon --watch \"src/\" --exec \"node src/app.js\"",
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node src/app.js"
+    "start": "react-scripts start",
+    "build": "react-scripts build",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/amirsanni/livestream-server.git"
+  "eslintConfig": {
+    "extends": [
+      "react-app",
+      "react-app/jest"
+    ]
   },
-  "keywords": [
-    "LiveStream",
-    "Server"
-  ],
-  "author": "Amir Sanni <amirsanni@gmail.com>",
-  "license": "ISC",
-  "bugs": {
-    "url": "https://github.com/amirsanni/livestream-server/issues"
-  },
-  "homepage": "https://github.com/amirsanni/livestream-server#readme"
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  }
 }
