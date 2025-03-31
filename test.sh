@@ -3,4 +3,4 @@ commit_with_message() {
   GIT_AUTHOR_DATE="$DATE" GIT_COMMITTER_DATE="$DATE" git commit -m "$1"
 }
 
-commit_with_message "configured backend and frontend folder"
+commit_with_message "removed node_modules"
