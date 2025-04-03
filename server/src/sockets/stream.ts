@@ -13,8 +13,8 @@ interface IceCandidate {
 }
 
 interface ChatMessage {
-  sender: string;
-  msg: string;
+  userName: string;
+  text: string;
   timestamp: string;
   room: string;
 }
@@ -48,6 +48,7 @@ export const registerStreamNamespace = (stream: Namespace) => {
     });
 
     socket.on('chat', (data: ChatMessage) => {
+      console.log(`Chat message from ${data.userName} in room ${data.room}: ${data.text}`);
       socket.to(data.room).emit('chat', data);
     });
 
