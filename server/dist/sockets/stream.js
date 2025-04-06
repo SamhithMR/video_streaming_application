@@ -7,6 +7,7 @@ const registerStreamNamespace = (stream) => {
         socket.on('subscribe', (data) => {
             socket.join(data.room);
             socket.join(data.socketId);
+            console.log("socket joined room:", data.room);
             socket.to(data.room).emit('new user', { socketId: data.socketId });
         });
         socket.on('newUserStart', (data) => {
@@ -25,6 +26,7 @@ const registerStreamNamespace = (stream) => {
             });
         });
         socket.on('chat', (data) => {
+            console.log(`Chat message from ${data.userName} in room ${data.room}: ${data.text}`);
             socket.to(data.room).emit('chat', data);
         });
         socket.on('disconnect', () => {

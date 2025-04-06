@@ -26,6 +26,7 @@ export const registerStreamNamespace = (stream: Namespace) => {
     socket.on('subscribe', (data: { room: string; socketId: string }) => {
       socket.join(data.room);
       socket.join(data.socketId);
+      console.log("socket joined room:", {dr: data.room, socketId: data.socketId});
       socket.to(data.room).emit('new user', { socketId: data.socketId });
     });
 
