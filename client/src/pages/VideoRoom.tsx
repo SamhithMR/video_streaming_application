@@ -1,44 +1,222 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { use, useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { io, Socket } from 'socket.io-client';
+import { Socket } from 'socket.io-client';
 import ChatBox from './ChatBox';
-const VideoRoom: React.FC = () => {
+import { Box, Grid, Paper, Typography } from '@mui/material';
+import { User, StreamData, IceCandidate } from '../types/index';
+import { getIceServers, getUserMedia } from '../utils/webrtc';
+import { Videocam, VideocamOff, Mic, MicOff, ScreenShare, StopScreenShare, FiberManualRecord, Chat } from '@mui/icons-material';
+
+interface Props {
+  socket: Socket;
+}
+
+const VideoRoom: React.FC<Props> = ({ socket }) => {
   const { room_id, username } = useParams();
-  const socketRef = useRef<Socket | null>(null);
-  const [isSocketReady, setIsSocketReady] = useState(false);
+  const localVideoRef = useRef<HTMLVideoElement>(null);
+  const screenStream = useRef<MediaStream | null>(null);
+
+  // Media and Stream States
+  const [localStream, setLocalStream] = useState<MediaStream | null>(null);
+  const [isVideoEnabled, setIsVideoEnabled] = useState(true);
+  const [isAudioEnabled, setIsAudioEnabled] = useState(true);
+  const [isScreenSharing, setIsScreenSharing] = useState(false);
+
+  // Peer connections and chat state
+  const [peers, setPeers] = useState<{ [key: string]: RTCPeerConnection }>({});
+  const [isChatOpen, setIsChatOpen] = useState(false);
 
   useEffect(() => {
     if (!room_id || !username) return;
 
-    const socket = io('http://localhost:3001/stream', {
-      transports: ['websocket'],
-    });
-
-    socketRef.current = socket;
-
-    socket.on('connect', () => {
-      socket.emit('subscribe', {
-        room: room_id,
-        socketId: socket.id,
-      });
-      setIsSocketReady(true);
-    });
+    initializeMedia();
+    console.log("in usereffec")
+    setupSocketListeners();
 
     return () => {
-      socket.disconnect();
+      cleanupSocketListeners();
     };
-  }, [room_id, username]);
+  }, [room_id, username, socket]);
+
+  const initializeMedia = async () => {
+    try {
+      const stream = await getUserMedia();
+      setLocalStream(stream);
+
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = stream;
+      }
+    } catch (error) {
+      console.error('Error accessing media devices:', error);
+    }
+  };
+
+  const setupSocketListeners = () => {
+    socket.on('connect', () => {
+      console.log("connec", { room: room_id, socketId: socket.id })
+      socket.emit('subscribe', { room: room_id, socketId: socket.id });
+    });
+    socket.on('new user', ({ socketId }) => {
+      console.log(`New user joined: ${socketId}`);
+      createPeerConnection(socketId, true)
+    });
+    socket.on('sdp', handleSDP);
+    socket.on('ice candidates', handleIceCandidates);
+
+    socket.on('connect_error', (err) => {
+        console.error('Socket connection failed:', err);
+    });
+
+  };
+
+  const cleanupSocketListeners = () => {
+    socket.off('new user');
+    socket.off('sdp');
+    socket.off('ice candidates');
+    // socket.disconnect();
+  };
+
+  const createPeerConnection = async (peerId: string, isInitiator: boolean) => {
+    const peer = new RTCPeerConnection(getIceServers());
+    peers[peerId] = peer;
+    setPeers((prev) => ({ ...prev, [peerId]: peer }));
+
+    peer.onicecandidate = ({ candidate }) => {
+      socket.emit('ice candidates', {
+        candidate,
+        to: peerId,
+        sender: socket.id,
+      });
+    };
+
+    peer.ontrack = (event) => {
+      const remoteVideo = document.getElementById(`video-${peerId}`) as HTMLVideoElement;
+      if (remoteVideo) {
+        remoteVideo.srcObject = event.streams[0];
+      }
+    };
+
+    if (localStream) {
+      localStream.getTracks().forEach((track) => peer.addTrack(track, localStream));
+    }
+
+    if (isInitiator) {
+      const offer = await peer.createOffer();
+      await peer.setLocalDescription(offer);
+      socket.emit('sdp', {
+        description: peer.localDescription,
+        to: peerId,
+        sender: socket.id,
+      });
+    }
+
+    return peer;
+  };
+
+  const handleSDP = async ({ description, sender }: StreamData) => {
+    const peer = peers[sender] || await createPeerConnection(sender, false);
+    await peer.setRemoteDescription(description);
+
+    if (description.type === 'offer') {
+      const answer = await peer.createAnswer();
+      await peer.setLocalDescription(answer);
+      socket.emit('sdp', {
+        description: peer.localDescription,
+        to: sender,
+        sender: socket.id,
+      });
+    }
+  };
+
+  const handleIceCandidates = async ({ candidate, sender }: IceCandidate) => {
+    if (candidate) {
+      await peers[sender]?.addIceCandidate(new RTCIceCandidate(candidate));
+    }
+  };
 
   return (
     <div>
       <h3>Room: {room_id} | User: {username}</h3>
       <div className="video-container">
-        {/* Video elements go here */}
+        <Box sx={{ height: '100vh', p: 2 }}>
+          <Grid container spacing={2}>
+            <Grid sx={{ gridColumn: `span ${isChatOpen ? 9 : 12}` }}>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+                {/* Local Video */}
+                <Paper elevation={3} sx={{ width: 320, height: 240, position: 'relative' }}>
+                  <video
+                    ref={localVideoRef}
+                    autoPlay
+                    muted
+                    playsInline
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  />
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      position: 'absolute',
+                      bottom: 8,
+                      left: 8,
+                      color: 'white',
+                      backgroundColor: 'rgba(0,0,0,0.5)',
+                      padding: '2px 6px',
+                      borderRadius: 1,
+                    }}
+                  >
+                    You
+                  </Typography>
+                </Paper>
+
+                {/* Remote Peers */}
+                {Object.keys(peers).map((peerId) => (
+                  <Paper key={peerId} elevation={3} sx={{ width: 320, height: 240, position: 'relative' }}>
+                    <video
+                      id={`video-${peerId}`}
+                      autoPlay
+                      playsInline
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    />
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        position: 'absolute',
+                        bottom: 8,
+                        left: 8,
+                        color: 'white',
+                        backgroundColor: 'rgba(0,0,0,0.5)',
+                        padding: '2px 6px',
+                        borderRadius: 1,
+                      }}
+                    >
+                      Participant
+                    </Typography>
+                  </Paper>
+                ))}
+              </Box>
+            </Grid>
+          </Grid>
+
+          <Box
+            sx={{
+              position: 'fixed',
+              bottom: 16,
+              left: '50%',
+              transform: 'translateX(-50%)',
+              backgroundColor: 'rgba(0,0,0,0.5)',
+              borderRadius: 2,
+              padding: 1,
+            }}
+          >
+            {/* Buttons for video/audio controls can go here */}
+          </Box>
+        </Box>
       </div>
+
+      {/* Chat Container */}
       <div className="chat-container">
-        {isSocketReady && socketRef.current && (
+        {socket && (
           <ChatBox
-            socket={socketRef.current}
+            socket={socket}
             userName={username!}
             room={room_id ?? ''}
           />
@@ -47,6 +225,5 @@ const VideoRoom: React.FC = () => {
     </div>
   );
 };
-
 
 export default VideoRoom;
