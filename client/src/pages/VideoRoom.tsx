@@ -2,7 +2,7 @@ import React, { use, useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { Socket } from 'socket.io-client';
 import ChatBox from './ChatBox';
-import { Box, Grid, Paper, Typography } from '@mui/material';
+import { Box, Grid, Paper, Typography, Button, TextField } from '@mui/material';
 import { User, StreamData, IceCandidate } from '../types/index';
 import { getIceServers, getUserMedia } from '../utils/webrtc';
 import { Videocam, VideocamOff, Mic, MicOff, ScreenShare, StopScreenShare, FiberManualRecord, Chat } from '@mui/icons-material';
@@ -26,8 +26,16 @@ const VideoRoom: React.FC<Props> = ({ socket }) => {
   const [peers, setPeers] = useState<{ [key: string]: RTCPeerConnection }>({});
   const [isChatOpen, setIsChatOpen] = useState(false);
 
+  const [usernameInput, setUsernameInput] = useState('');
+  const [showUsernamePrompt, setShowUsernamePrompt] = useState(!username);
+
+
   useEffect(() => {
-    if (!room_id || !username) return;
+    if (!room_id) return;
+    if (!username) {
+      setShowUsernamePrompt(true);
+      return;
+    }
 
     initializeMedia();
     console.log("in usereffec")
@@ -37,6 +45,7 @@ const VideoRoom: React.FC<Props> = ({ socket }) => {
       cleanupSocketListeners();
     };
   }, [room_id, username, socket]);
+
 
   const initializeMedia = async () => {
     try {
@@ -134,7 +143,59 @@ const VideoRoom: React.FC<Props> = ({ socket }) => {
     }
   };
 
+  if (showUsernamePrompt) {
+    return (
+    <Box
+      sx={{
+        height: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: 'background.default',
+        padding: 2,
+      }}
+    >
+      <Box
+        sx={{
+          maxWidth: 400,
+          width: '100%',
+          backgroundColor: 'background.paper',
+          padding: 4,
+          borderRadius: 2,
+          boxShadow: 3,
+          border: '1px solid',
+          borderColor: 'primary.main',
+        }}
+      >
+        <Typography variant="h6" gutterBottom>
+          Enter Your Username
+        </Typography>
+        <TextField
+          fullWidth
+          label="Username"
+          variant="outlined"
+          value={usernameInput}
+          onChange={(e) => setUsernameInput(e.target.value)}
+          sx={{ marginBottom: 2 }}
+        />
+        <Button
+          variant="contained"
+          fullWidth
+          onClick={() => {
+            if (usernameInput.trim()) {
+              window.location.href = `/room/${room_id}/${encodeURIComponent(usernameInput.trim())}`;
+            }
+          }}
+        >
+          Continue
+        </Button>
+      </Box>
+    </Box>
+    );
+  }
+
   return (
+    
     <div>
       <h3>Room: {room_id} | User: {username}</h3>
       <div className="video-container">
@@ -166,7 +227,7 @@ const VideoRoom: React.FC<Props> = ({ socket }) => {
                     You
                   </Typography>
                 </Paper>
-
+  
                 {/* Remote Peers */}
                 {Object.keys(peers).map((peerId) => (
                   <Paper key={peerId} elevation={3} sx={{ width: 320, height: 240, position: 'relative' }}>
@@ -195,7 +256,7 @@ const VideoRoom: React.FC<Props> = ({ socket }) => {
               </Box>
             </Grid>
           </Grid>
-
+  
           <Box
             sx={{
               position: 'fixed',
@@ -211,7 +272,7 @@ const VideoRoom: React.FC<Props> = ({ socket }) => {
           </Box>
         </Box>
       </div>
-
+  
       {/* Chat Container */}
       <div className="chat-container">
         {socket && (
@@ -224,6 +285,7 @@ const VideoRoom: React.FC<Props> = ({ socket }) => {
       </div>
     </div>
   );
+
 };
 
 export default VideoRoom;

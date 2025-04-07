@@ -27,7 +27,7 @@ function App() {
       <Router>
         <Routes>
           <Route path="/" element={<Home />} />
-          <Route path="/room/:room_id/:username" element={<VideoRoom socket={socket}/>} />
+          <Route path="/room/:room_id/:username?" element={<VideoRoom socket={socket}/>} />
         </Routes>
       </Router>
     </ThemeProvider>
