@@ -4,12 +4,14 @@ interface StreamData {
   description: RTCSessionDescription;
   sender: string;
   to: string;
+  room: string;
 }
 
 interface IceCandidate {
   candidate: RTCIceCandidate;
   sender: string;
   to: string;
+  room: string;
 }
 
 interface ChatMessage {
@@ -19,22 +21,40 @@ interface ChatMessage {
   room: string;
 }
 
+interface RoomUser {
+  socketId: string;
+  username: string;
+}
+
+// Keep track of users in rooms
+const rooms = new Map<string, Set<RoomUser>>();
+
 export const registerStreamNamespace = (stream: Namespace) => {
   stream.on('connection', (socket: Socket) => {
     console.log(`Client connected: ${socket.id}`);
 
-    socket.on('subscribe', (data: { room: string; socketId: string }) => {
+    socket.on('subscribe', (data: { room: string; socketId: string; username: string }) => {
+      // Join the room
       socket.join(data.room);
       socket.join(data.socketId);
-      console.log("socket joined room:", {dr: data.room, socketId: data.socketId});
-      socket.to(data.room).emit('new user', { socketId: data.socketId });
-    });
+      
+      // Add user to room tracking
+      if (!rooms.has(data.room)) {
+        rooms.set(data.room, new Set());
+      }
+      rooms.get(data.room)?.add({ socketId: data.socketId, username: data.username });
+      
+      // Notify others in the room
+      socket.to(data.room).emit('new user', { 
+        socketId: data.socketId,
+        username: data.username 
+      });
 
-    socket.on('newUserStart', (data: { to: string; sender: string }) => {
-      socket.to(data.to).emit('newUserStart', { sender: data.sender });
+      console.log(`User ${data.username} (${data.socketId}) joined room: ${data.room}`);
     });
 
     socket.on('sdp', (data: StreamData) => {
+      console.log(`SDP: ${data.description.type} from ${data.sender} to ${data.to}`);
       socket.to(data.to).emit('sdp', {
         description: data.description,
         sender: data.sender
@@ -42,6 +62,7 @@ export const registerStreamNamespace = (stream: Namespace) => {
     });
 
     socket.on('ice candidates', (data: IceCandidate) => {
+      console.log(`ICE candidate from ${data.sender} to ${data.to}`);
       socket.to(data.to).emit('ice candidates', {
         candidate: data.candidate,
         sender: data.sender
@@ -53,8 +74,39 @@ export const registerStreamNamespace = (stream: Namespace) => {
       socket.to(data.room).emit('chat', data);
     });
 
+    socket.on('unsubscribe', (data: { room: string; socketId: string }) => {
+      handleUserDisconnection(socket, data.room, data.socketId);
+    });
+
     socket.on('disconnect', () => {
-      console.log(`Client disconnected: ${socket.id}`);
+      // Find and remove user from all rooms they were in
+      rooms.forEach((users, room) => {
+        const user = Array.from(users).find(u => u.socketId === socket.id);
+        if (user) {
+          handleUserDisconnection(socket, room, socket.id);
+        }
+      });
     });
   });
+
+  const handleUserDisconnection = (socket: Socket, room: string, socketId: string) => {
+    const roomUsers = rooms.get(room);
+    if (roomUsers) {
+      // Remove user from room tracking
+      roomUsers.forEach(user => {
+        if (user.socketId === socketId) {
+          roomUsers.delete(user);
+        }
+      });
+      
+      // If room is empty, remove it
+      if (roomUsers.size === 0) {
+        rooms.delete(room);
+      }
+      
+      // Notify others in the room
+      socket.to(room).emit('user left', { socketId });
+      console.log(`User ${socketId} left room: ${room}`);
+    }
+  };
 };

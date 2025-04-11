@@ -71,45 +71,48 @@ const ChatBox: React.FC<Props> = ({ socket, userName, room }) => {
           backgroundColor: '#f5f5f5',
         }}
       >
-        <List>
-          {messages.map((msg) => (
-            <ListItem
-              key={msg.id}
-              sx={{
-                display: 'flex',
-                justifyContent: msg.userName === userName ? 'flex-end' : 'flex-start',
-              }}
-            >
-              <Box
-                sx={{
-                  bgcolor: msg.userName === userName ? '#dcf8c6' : '#fff',
-                  p: 1.5,
-                  borderRadius: 2,
-                  maxWidth: '60%',
-                }}
-              >
-                <ListItemText
-                  primary={
-                    <Typography variant="body1">{msg.text}</Typography>
-                  }
-                  secondary={
-                    <Typography variant="caption" align="right" sx={{ display: 'block' }}>
-                      {new Date(msg.timestamp).toLocaleTimeString()}
-                    </Typography>
-                  }
-                />
-                <ListItemText
-                  secondary={
-                    <Typography variant="caption" align="right" sx={{ display: 'block' }}>
-                      {msg.userName}
-                    </Typography>
-                  }
-                />
-              </Box>
-            </ListItem>
-          ))}
-          <div ref={messagesEndRef} />
-        </List>
+<List>
+  {messages.map((msg) => (
+    <ListItem
+      key={msg.id}
+      sx={{
+        display: 'flex',
+        justifyContent: msg.userName === userName ? 'flex-end' : 'flex-start',
+      }}
+    >
+      <Box
+        sx={{
+          bgcolor: msg.userName === userName ? '#dcf8c6' : '#fff',
+          p: 1.5,
+          borderRadius: 2,
+          maxWidth: '60%',
+        }}
+      >
+        <ListItemText
+          primary={
+            <Typography variant="body1" sx={{ color: 'black' }}>
+              {msg.text}
+            </Typography>
+          }
+          secondary={
+            <Typography variant="caption" align="right" sx={{ display: 'block', color: 'black' }}>
+              {new Date(msg.timestamp).toLocaleTimeString()}
+            </Typography>
+          }
+        />
+        <ListItemText
+          secondary={
+            <Typography variant="caption" align="right" sx={{ display: 'block', color: 'black' }}>
+              {msg.userName}
+            </Typography>
+          }
+        />
+      </Box>
+    </ListItem>
+  ))}
+  <div ref={messagesEndRef} />
+</List>
+
       </Paper>
 
       <TextField
