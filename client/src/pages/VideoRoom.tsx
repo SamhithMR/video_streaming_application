@@ -5,7 +5,6 @@ import ChatBox from './ChatBox';
 import { Box, Grid, Paper, Typography, Button, TextField } from '@mui/material';
 import { User, StreamData, IceCandidate } from '../types/index';
 import { getIceServers, getUserMedia } from '../utils/webrtc';
-import { Videocam, VideocamOff, Mic, MicOff, ScreenShare, StopScreenShare, FiberManualRecord, Chat } from '@mui/icons-material';
 
 interface Props {
   socket: Socket;
