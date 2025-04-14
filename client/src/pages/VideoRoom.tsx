@@ -38,44 +38,39 @@ const VideoRoom: React.FC<Props> = ({ socket }) => {
   const localStreamRef = useRef<MediaStream | null>(null);
   const socketRef = useRef(socket);
 
-  const initializeMedia = useCallback(async () => {
-    try {
-      // First check if media devices are available
-      const devices = await navigator.mediaDevices.enumerateDevices();
-      const hasVideo = devices.some(device => device.kind === 'videoinput');
-      const hasAudio = devices.some(device => device.kind === 'audioinput');
+const initializeMedia = useCallback(async () => {
+  try {
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const hasVideo = devices.some(device => device.kind === 'videoinput');
+    const hasAudio = devices.some(device => device.kind === 'audioinput');
 
-      if (!hasVideo && !hasAudio) {
-        throw new Error('No media devices found');
-      }
-
-      // Request media with fallbacks
-      try {
-        const stream = await getUserMedia();
-        setLocalStream(stream);
-        localStreamRef.current = stream;
-        
-        if (localVideoRef.current) {
-          localVideoRef.current.srcObject = stream;
-          // Mute local video to avoid echo
-          localVideoRef.current.muted = true;
-        }
-      } catch (mediaError) {
-        // Try fallback with just audio if video fails
-        console.warn('Failed to get video, trying audio only:', mediaError);
-        const audioOnlyStream = await navigator.mediaDevices.getUserMedia({ 
-          audio: true, 
-          video: false 
-        });
-        setLocalStream(audioOnlyStream);
-        localStreamRef.current = audioOnlyStream;
-      }
-    } catch (error) {
-      console.error('Failed to initialize media:', error);
-      // Set a user-friendly error state that can be shown in the UI
-      setMediaError(true);
+    if (!hasVideo && !hasAudio) {
+      throw new Error('No media devices found');
     }
-  }, []);
+
+    try {
+      const stream = await getUserMedia();
+      setLocalStream(stream);
+      localStreamRef.current = stream;
+
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = stream;
+        localVideoRef.current.muted = true;
+      }
+    } catch (mediaError) {
+      console.warn('getUserMedia failed, proceeding without media:', mediaError);
+      setLocalStream(null);
+      localStreamRef.current = null;
+    }
+  } catch (error) {
+    console.error('Media initialization error:', error);
+    // Still allow connection without media
+    setMediaError(false); // Clear error
+    setLocalStream(null);
+    localStreamRef.current = null;
+  }
+}, []);
+
 
   // Add socket connection status tracking
   useEffect(() => {
@@ -107,11 +102,9 @@ const VideoRoom: React.FC<Props> = ({ socket }) => {
       // Add local tracks to the connection
       if (localStreamRef.current) {
         localStreamRef.current.getTracks().forEach(track => {
-          if (localStreamRef.current) {
-            console.log('Adding track to peer connection:', track.kind);
-            peerConnection.addTrack(track, localStreamRef.current);
-          }
-        });
+        peerConnection.addTrack(track, localStreamRef.current!);
+      })} else {
+        console.warn(`No local media to add to connection with ${peerId}`);
       }
 
       // Handle ICE candidates
@@ -188,6 +181,7 @@ const VideoRoom: React.FC<Props> = ({ socket }) => {
           offerToReceiveAudio: true,
           offerToReceiveVideo: true,
         });
+
         console.log('Setting local description (offer)');
         await peerConnection.setLocalDescription(offer);
         
