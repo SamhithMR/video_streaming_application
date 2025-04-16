@@ -559,6 +559,14 @@ const initializeMedia = useCallback(async () => {
           >
             You
           </Typography>
+          <Box sx={{ display: 'flex', justifyContent: 'space-around', mt: 1 }}>
+            <Button size="small" variant="outlined" onClick={toggleVideo}>
+              {isVideoEnabled ? 'Hide Video' : 'Show Video'}
+            </Button>
+            <Button size="small" variant="outlined" onClick={toggleAudio}>
+              {isAudioEnabled ? 'Mute' : 'Unmute'}
+            </Button>
+        </Box>
         </Paper>
 
         {/* Remote Peers */}
