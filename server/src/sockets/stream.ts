@@ -14,10 +14,16 @@ interface IceCandidate {
   room: string;
 }
 
-interface ChatMessage {
-  userName: string;
-  text: string;
-  timestamp: string;
+interface User {
+  id: string;
+  name: string;
+}
+
+interface Message {
+  id: string;
+  sender: User;
+  content: string;
+  timestamp: Date;
   room: string;
 }
 
@@ -69,9 +75,10 @@ export const registerStreamNamespace = (stream: Namespace) => {
       });
     });
 
-    socket.on('chat', (data: ChatMessage) => {
-      console.log(`Chat message from ${data.userName} in room ${data.room}: ${data.text}`);
-      socket.to(data.room).emit('chat', data);
+    socket.on('chat message', (message: Message) => {
+      console.log(`Chat message from ${message.sender.name} in room ${message.room}: ${message.content}`);
+      // Broadcast the message to all users in the room except the sender
+      socket.to(message.room).emit('chat message', message);
     });
 
     socket.on('unsubscribe', (data: { room: string; socketId: string }) => {

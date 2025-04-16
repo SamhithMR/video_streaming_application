@@ -2,9 +2,18 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { Socket } from 'socket.io-client';
 import ChatBox from './ChatBox';
-import { Box, Grid, Paper, Typography, Button, TextField } from '@mui/material';
-import { User, StreamData, IceCandidate } from '../types/index';
+import { Box, Grid, Paper, Typography, Button, TextField, Container, IconButton, useTheme, useMediaQuery } from '@mui/material';
+import { User, StreamData, IceCandidate, Message } from '../types/index';
 import { getIceServers, getUserMedia } from '../utils/webrtc';
+import { styled } from '@mui/material/styles';
+import {
+  ScreenShare,
+  StopScreenShare,
+  Settings,
+  ExitToApp,
+} from '@mui/icons-material';
+import VideoGrid from '../components/VideoGrid';
+import Chat from '../components/Chat';
 
 interface Props {
   socket: Socket;
@@ -14,6 +23,30 @@ interface PeerConnection {
   connection: RTCPeerConnection;
   stream: MediaStream | null;
 }
+
+const RoomContainer = styled(Container)(({ theme }) => ({
+  height: '100vh',
+  display: 'flex',
+  flexDirection: 'column',
+  padding: theme.spacing(2),
+  gap: theme.spacing(2),
+}));
+
+const MainContent = styled(Box)(({ theme }) => ({
+  flex: 1,
+  display: 'flex',
+  gap: theme.spacing(2),
+  minHeight: 0, // Important for nested flex containers
+}));
+
+const ControlBar = styled(Paper)(({ theme }) => ({
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  padding: theme.spacing(1, 2),
+  backgroundColor: theme.palette.background.paper,
+  borderRadius: theme.spacing(1),
+}));
 
 const VideoRoom: React.FC<Props> = ({ socket }) => {
   const { room_id, username } = useParams();
@@ -32,45 +65,49 @@ const VideoRoom: React.FC<Props> = ({ socket }) => {
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'disconnected'>('disconnected');
   const [mediaError, setMediaError] = useState(false);
   const [needsUserInteraction, setNeedsUserInteraction] = useState(false);
+  const [messages, setMessages] = useState<Message[]>([]);
   
   // Use refs to avoid dependency cycles
   const peersRef = useRef(new Map<string, PeerConnection>());
   const localStreamRef = useRef<MediaStream | null>(null);
   const socketRef = useRef(socket);
 
-const initializeMedia = useCallback(async () => {
-  try {
-    const devices = await navigator.mediaDevices.enumerateDevices();
-    const hasVideo = devices.some(device => device.kind === 'videoinput');
-    const hasAudio = devices.some(device => device.kind === 'audioinput');
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const [showChat, setShowChat] = useState(!isMobile);
 
-    if (!hasVideo && !hasAudio) {
-      throw new Error('No media devices found');
-    }
-
+  const initializeMedia = useCallback(async () => {
     try {
-      const stream = await getUserMedia();
-      setLocalStream(stream);
-      localStreamRef.current = stream;
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const hasVideo = devices.some(device => device.kind === 'videoinput');
+      const hasAudio = devices.some(device => device.kind === 'audioinput');
 
-      if (localVideoRef.current) {
-        localVideoRef.current.srcObject = stream;
-        localVideoRef.current.muted = true;
+      if (!hasVideo && !hasAudio) {
+        throw new Error('No media devices found');
       }
-    } catch (mediaError) {
-      console.warn('getUserMedia failed, proceeding without media:', mediaError);
+
+      try {
+        const stream = await getUserMedia();
+        setLocalStream(stream);
+        localStreamRef.current = stream;
+
+        if (localVideoRef.current) {
+          localVideoRef.current.srcObject = stream;
+          localVideoRef.current.muted = true;
+        }
+      } catch (mediaError) {
+        console.warn('getUserMedia failed, proceeding without media:', mediaError);
+        setLocalStream(null);
+        localStreamRef.current = null;
+      }
+    } catch (error) {
+      console.error('Media initialization error:', error);
+      // Still allow connection without media
+      setMediaError(false); // Clear error
       setLocalStream(null);
       localStreamRef.current = null;
     }
-  } catch (error) {
-    console.error('Media initialization error:', error);
-    // Still allow connection without media
-    setMediaError(false); // Clear error
-    setLocalStream(null);
-    localStreamRef.current = null;
-  }
-}, []);
-
+  }, []);
 
   // Add socket connection status tracking
   useEffect(() => {
@@ -207,7 +244,7 @@ const initializeMedia = useCallback(async () => {
     }
   }, [room_id]);
 
-  const handleSDP = useCallback(async ({ description, sender }: StreamData) => {
+  const handleSDP = useCallback(async ({ description, sender, to, room }: StreamData) => {
     try {
       console.log('Handling SDP from', sender, description.type);
       let peerConnection = peersRef.current.get(sender)?.connection;
@@ -246,7 +283,7 @@ const initializeMedia = useCallback(async () => {
     }
   }, [createPeerConnection, room_id]);
 
-  const handleIceCandidate = useCallback(async ({ candidate, sender }: IceCandidate) => {
+  const handleIceCandidate = useCallback(async ({ candidate, sender, to, room }: IceCandidate) => {
     try {
       const peer = peersRef.current.get(sender)?.connection;
       if (!peer) {
@@ -354,6 +391,56 @@ const initializeMedia = useCallback(async () => {
       setIsAudioEnabled(prev => !prev);
     }
   }, [localStream]);
+
+  // Add chat message handler
+  const handleNewMessage = useCallback((message: string) => {
+    const newMessage: Message = {
+      id: Date.now().toString(),
+      sender: {
+        id: socketRef.current?.id || Date.now().toString(),
+        name: username || 'Anonymous',
+      },
+      content: message,
+      timestamp: new Date(),
+    };
+
+    // Emit the message to the server
+    socketRef.current.emit('chat message', {
+      ...newMessage,
+      room: room_id,
+    });
+
+    // Add message to local state
+    setMessages(prev => [...prev, newMessage]);
+  }, [room_id, username]);
+
+  // Add chat socket listeners
+  useEffect(() => {
+    if (!socketRef.current) return;
+
+    const handleIncomingMessage = (message: Message) => {
+      setMessages(prev => [...prev, message]);
+    };
+
+    socketRef.current.on('chat message', handleIncomingMessage);
+
+    return () => {
+      socketRef.current.off('chat message', handleIncomingMessage);
+    };
+  }, []);
+
+  // Modify the video controls to only allow toggling own video/audio
+  const handleToggleAudio = (participantId: string) => {
+    if (participantId === 'local') {
+      toggleAudio();
+    }
+  };
+
+  const handleToggleVideo = (participantId: string) => {
+    if (participantId === 'local') {
+      toggleVideo();
+    }
+  };
 
   // Define proper types for the RemoteVideo component
   interface RemoteVideoProps {
@@ -523,70 +610,52 @@ const initializeMedia = useCallback(async () => {
   }
 
   return (
-    <Box sx={{ height: '100vh', width: '100%', display: 'flex', flexDirection: { xs: 'column', md: 'row' } }}>
-      {/* Video Section */}
-      <Box
-        sx={{
-          flex: { xs: '1 1 auto', md: '0 0 70%' },
-          overflowY: 'auto',
-          p: 2,
-          display: 'flex',
-          flexWrap: 'wrap',
-          gap: 2,
-          justifyContent: { xs: 'center', md: 'flex-start' },
-        }}
-      >
-        {/* Local Video */}
-        <Paper elevation={3} sx={{ width: 320, height: 240, position: 'relative' }}>
-          <video
-            ref={localVideoRef}
-            autoPlay
-            muted
-            playsInline
-            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+    <RoomContainer maxWidth={false} disableGutters>
+      <ControlBar elevation={3}>
+        <Typography variant="h6">Room: {room_id}</Typography>
+      </ControlBar>
+
+      <MainContent>
+        <Box sx={{ flex: showChat ? 2 : 1, minHeight: 0 }}>
+          <VideoGrid
+            participants={[
+              {
+                id: 'local',
+                name: username || 'You',
+                isAudioEnabled: isAudioEnabled,
+                isVideoEnabled: isVideoEnabled,
+                ...(localStream ? { stream: localStream } : {}),
+              },
+              ...Array.from(peers.entries()).map(([peerId, { stream }]) => ({
+                id: peerId,
+                name: peerId,
+                isAudioEnabled: stream ? stream.getAudioTracks().length > 0 : false,
+                isVideoEnabled: stream ? stream.getVideoTracks().length > 0 : false,
+                ...(stream ? { stream } : {}),
+              })),
+            ]}
+            onToggleAudio={handleToggleAudio}
+            onToggleVideo={handleToggleVideo}
           />
-          <Typography
-            variant="caption"
-            sx={{
-              position: 'absolute',
-              bottom: 8,
-              left: 8,
-              color: 'white',
-              backgroundColor: 'rgba(0,0,0,0.5)',
-              padding: '2px 6px',
-              borderRadius: 1,
-            }}
-          >
-            You
-          </Typography>
-          <Box sx={{ display: 'flex', justifyContent: 'space-around', mt: 1 }}>
-            <Button size="small" variant="outlined" onClick={toggleVideo}>
-              {isVideoEnabled ? 'Hide Video' : 'Show Video'}
-            </Button>
-            <Button size="small" variant="outlined" onClick={toggleAudio}>
-              {isAudioEnabled ? 'Mute' : 'Unmute'}
-            </Button>
         </Box>
-        </Paper>
-
-        {/* Remote Peers */}
-        {Array.from(peers.entries()).map(([peerId, { stream }]) => (
-          <RemoteVideo key={peerId} peerId={peerId} stream={stream} />
-        ))}
-      </Box>
-
-      {/* Chat Section */}
-      <Box
-        sx={{
-          flex: { xs: '1 1 auto', md: '0 0 30%' },
-          borderLeft: { md: '1px solid #ccc' },
-          height: '100%',
-          boxSizing: 'border-box',
-        }}
-      >
-        <ChatBox socket={socket} userName={username!} room={room_id ?? ''} />
-      </Box>
-    </Box>
+        
+        <Box 
+          sx={{ 
+            flex: 1, 
+            minHeight: 0, 
+            display: { xs: showChat ? 'block' : 'none', md: 'block' },
+            minWidth: { md: '300px' },
+            maxWidth: { md: '400px' },
+          }}
+        >
+          <Chat
+            messages={messages}
+            onSendMessage={handleNewMessage}
+            currentUserId={socketRef.current?.id || 'local'}
+          />
+        </Box>
+      </MainContent>
+    </RoomContainer>
   );
 };
 
