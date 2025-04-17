@@ -442,6 +442,89 @@ const VideoRoom: React.FC<Props> = ({ socket }) => {
     }
   };
 
+  // Add screen sharing toggle function
+  const toggleScreenShare = useCallback(async () => {
+    try {
+      if (isScreenSharing) {
+        // Stop screen sharing
+        screenStream.current?.getTracks().forEach(track => track.stop());
+        screenStream.current = null;
+
+        // Restore camera video track
+        if (localStreamRef.current) {
+          const videoTrack = localStreamRef.current.getVideoTracks()[0];
+          // Update local video display
+          if (localVideoRef.current) {
+            localVideoRef.current.srcObject = localStreamRef.current;
+          }
+          // Update peer connections
+          peersRef.current.forEach(({ connection }) => {
+            const sender = connection.getSenders().find(s => s.track?.kind === 'video');
+            if (sender) {
+              sender.replaceTrack(videoTrack);
+            }
+          });
+        }
+
+        setIsScreenSharing(false);
+      } else {
+        // Start screen sharing
+        const stream = await navigator.mediaDevices.getDisplayMedia({
+          video: true,
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            sampleRate: 44100
+          }
+        });
+
+        screenStream.current = stream;
+
+        // Create a new stream that includes the screen share video and the original audio
+        const newStream = new MediaStream();
+        
+        // Add the screen share video track
+        const screenTrack = stream.getVideoTracks()[0];
+        newStream.addTrack(screenTrack);
+        
+        // Add the original audio track if it exists
+        if (localStreamRef.current) {
+          const audioTrack = localStreamRef.current.getAudioTracks()[0];
+          if (audioTrack) {
+            newStream.addTrack(audioTrack);
+          }
+        }
+
+        // Update local video display with the new stream
+        if (localVideoRef.current) {
+          localVideoRef.current.srcObject = newStream;
+        }
+
+        // Update the local stream reference
+        setLocalStream(newStream);
+        localStreamRef.current = newStream;
+
+        // Replace video track in all peer connections
+        peersRef.current.forEach(({ connection }) => {
+          const sender = connection.getSenders().find(s => s.track?.kind === 'video');
+          if (sender) {
+            sender.replaceTrack(screenTrack);
+          }
+        });
+
+        // Handle when user stops screen sharing through the browser UI
+        screenTrack.onended = () => {
+          toggleScreenShare();
+        };
+
+        setIsScreenSharing(true);
+      }
+    } catch (error) {
+      console.error('Error toggling screen share:', error);
+      setIsScreenSharing(false);
+    }
+  }, [isScreenSharing]);
+
   // Define proper types for the RemoteVideo component
   interface RemoteVideoProps {
     peerId: string;
@@ -613,6 +696,22 @@ const VideoRoom: React.FC<Props> = ({ socket }) => {
     <RoomContainer maxWidth={false} disableGutters>
       <ControlBar elevation={3}>
         <Typography variant="h6">Room: {room_id}</Typography>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <IconButton
+            onClick={toggleScreenShare}
+            color={isScreenSharing ? 'primary' : 'default'}
+            title={isScreenSharing ? 'Stop sharing screen' : 'Share screen'}
+          >
+            {isScreenSharing ? <StopScreenShare /> : <ScreenShare />}
+          </IconButton>
+          <IconButton
+            onClick={() => window.location.href = '/'}
+            color="default"
+            title="Leave room"
+          >
+            <ExitToApp />
+          </IconButton>
+        </Box>
       </ControlBar>
 
       <MainContent>

@@ -141,8 +141,8 @@ const Chat: React.FC<ChatProps> = ({ messages, onSendMessage, currentUserId }) =
                 </Typography>
               </Box>
               <MessageContent isCurrentUser={message.sender.id === currentUserId}>
-                <Typography variant="body1">{message.content}</Typography>
-                <Typography variant="caption" color={message.sender.id === currentUserId ? 'primary.contrastText' : 'text.secondary'}>
+                <Typography variant="body1" color={message.sender.id != currentUserId ? 'black' : 'primary.contrastText'}>{message.content}</Typography>
+                <Typography variant="caption" color={message.sender.id === currentUserId ? 'primary.contrastText' : 'black'}>
                   {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </Typography>
               </MessageContent>
