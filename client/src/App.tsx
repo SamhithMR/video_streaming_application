@@ -5,7 +5,8 @@ import Home from "./pages/Home";
 import VideoRoom from "./pages/VideoRoom";
 import { Socket, io } from 'socket.io-client';
 
-const socket = io('http://localhost:3001/stream');
+const SOCKET_URL = `${process.env.REACT_APP_SERVER_URL}${process.env.REACT_APP_SOCKET_NAMESPACE}` || 'http://localhost:3001/stream';
+const socket = io(SOCKET_URL);
 const theme = createTheme({
   palette: {
     mode: 'dark',
