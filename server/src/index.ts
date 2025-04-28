@@ -13,14 +13,21 @@ const httpServer = createServer(app);
 
 const io = new Server(httpServer, {
   cors: {
-    origin: process.env.CLIENT_URL || "http://localhost:3000",
-    methods: ["GET", "POST"]
-  }
+    origin: process.env.CLIENT_URL || "https://remarkable-sprite-61a401.netlify.app",
+    methods: ["GET", "POST"],
+    credentials: true
+  },
+  transports: ['websocket', 'polling']
 });
 
 app.use(cors({
-  origin: process.env.CLIENT_URL || "http://localhost:3000"
+  origin: process.env.CLIENT_URL || "https://remarkable-sprite-61a401.netlify.app",
+  credentials: true
 }));
+
+app.get("/health", (req, res) => {
+  res.status(200).json({ status: "healthy" });
+});
 
 app.get("/", (req, res) => {
   res.send("Server is running.");

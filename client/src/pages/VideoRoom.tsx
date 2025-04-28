@@ -254,29 +254,52 @@ const VideoRoom: React.FC<Props> = ({ socket }) => {
         peerConnection = await createPeerConnection(sender, false);
       }
 
+      const connectionState = peerConnection.signalingState;
+      console.log('Current signaling state:', connectionState);
+
       if (description.type === 'offer') {
-        // For offers, set remote description first
-        console.log('Setting remote description (offer)');
-        await peerConnection.setRemoteDescription(new RTCSessionDescription(description));
-        
-        // Then create and set local answer
-        console.log('Creating answer');
-        const answer = await peerConnection.createAnswer();
-        console.log('Setting local description (answer)');
-        await peerConnection.setLocalDescription(answer);
-        
-        // Send answer
-        console.log('Sending answer to', sender);
-        socketRef.current.emit('sdp', {
-          description: answer,
-          to: sender,
-          sender: socketRef.current.id,
-          room: room_id
-        });
+        // For offers, check if we can set remote description
+        if (connectionState === 'stable' || connectionState === 'have-local-offer') {
+          console.log('Setting remote description (offer)');
+          await peerConnection.setRemoteDescription(new RTCSessionDescription(description));
+          
+          // Then create and set local answer
+          console.log('Creating answer');
+          const answer = await peerConnection.createAnswer();
+          console.log('Setting local description (answer)');
+          await peerConnection.setLocalDescription(answer);
+          
+          // Send answer
+          console.log('Sending answer to', sender);
+          socketRef.current.emit('sdp', {
+            description: answer,
+            to: sender,
+            sender: socketRef.current.id,
+            room: room_id
+          });
+        } else {
+          console.warn('Cannot set remote description in current state:', connectionState);
+        }
       } else if (description.type === 'answer') {
-        // For answers, just set the remote description
-        console.log('Setting remote description (answer)');
-        await peerConnection.setRemoteDescription(new RTCSessionDescription(description));
+        // For answers, check if we're in the right state
+        if (connectionState === 'have-local-offer') {
+          console.log('Setting remote description (answer)');
+          await peerConnection.setRemoteDescription(new RTCSessionDescription(description));
+        } else {
+          console.warn('Cannot set remote description (answer) in current state:', connectionState);
+          // If we're in stable state, we might need to create a new offer
+          if (connectionState === 'stable') {
+            console.log('Creating new offer as we are in stable state');
+            const offer = await peerConnection.createOffer();
+            await peerConnection.setLocalDescription(offer);
+            socketRef.current.emit('sdp', {
+              description: offer,
+              to: sender,
+              sender: socketRef.current.id,
+              room: room_id
+            });
+          }
+        }
       }
     } catch (error) {
       console.error('Error handling SDP:', error);

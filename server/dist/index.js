@@ -15,13 +15,19 @@ const app = (0, express_1.default)();
 const httpServer = (0, http_1.createServer)(app);
 const io = new socket_io_1.Server(httpServer, {
     cors: {
-        origin: process.env.CLIENT_URL || "http://localhost:3000",
-        methods: ["GET", "POST"]
-    }
+        origin: process.env.CLIENT_URL || "https://remarkable-sprite-61a401.netlify.app",
+        methods: ["GET", "POST"],
+        credentials: true
+    },
+    transports: ['websocket', 'polling']
 });
 app.use((0, cors_1.default)({
-    origin: process.env.CLIENT_URL || "http://localhost:3000"
+    origin: process.env.CLIENT_URL || "https://remarkable-sprite-61a401.netlify.app",
+    credentials: true
 }));
+app.get("/health", (req, res) => {
+    res.status(200).json({ status: "healthy" });
+});
 app.get("/", (req, res) => {
     res.send("Server is running.");
 });
@@ -30,4 +36,5 @@ const stream = io.of(process.env.SOCKET_NAMESPACE || '/stream');
 const PORT = process.env.PORT || 3001;
 httpServer.listen(PORT, () => {
     console.log(`Server listening on port ${PORT}`);
+    console.log(process.env.CLIENT_URL);
 });
