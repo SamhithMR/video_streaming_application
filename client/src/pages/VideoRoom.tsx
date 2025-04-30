@@ -66,6 +66,7 @@ const VideoRoom: React.FC<Props> = ({ socket }) => {
   const [mediaError, setMediaError] = useState(false);
   const [needsUserInteraction, setNeedsUserInteraction] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [isLoadingMessages, setIsLoadingMessages] = useState(true);
   
   // Use refs to avoid dependency cycles
   const peersRef = useRef(new Map<string, PeerConnection>());
@@ -258,18 +259,15 @@ const VideoRoom: React.FC<Props> = ({ socket }) => {
       console.log('Current signaling state:', connectionState);
 
       if (description.type === 'offer') {
-        // For offers, check if we can set remote description
         if (connectionState === 'stable' || connectionState === 'have-local-offer') {
           console.log('Setting remote description (offer)');
           await peerConnection.setRemoteDescription(new RTCSessionDescription(description));
           
-          // Then create and set local answer
           console.log('Creating answer');
           const answer = await peerConnection.createAnswer();
           console.log('Setting local description (answer)');
           await peerConnection.setLocalDescription(answer);
           
-          // Send answer
           console.log('Sending answer to', sender);
           socketRef.current.emit('sdp', {
             description: answer,
@@ -281,13 +279,11 @@ const VideoRoom: React.FC<Props> = ({ socket }) => {
           console.warn('Cannot set remote description in current state:', connectionState);
         }
       } else if (description.type === 'answer') {
-        // For answers, check if we're in the right state
         if (connectionState === 'have-local-offer') {
           console.log('Setting remote description (answer)');
           await peerConnection.setRemoteDescription(new RTCSessionDescription(description));
         } else {
           console.warn('Cannot set remote description (answer) in current state:', connectionState);
-          // If we're in stable state, we might need to create a new offer
           if (connectionState === 'stable') {
             console.log('Creating new offer as we are in stable state');
             const offer = await peerConnection.createOffer();
@@ -324,9 +320,7 @@ const VideoRoom: React.FC<Props> = ({ socket }) => {
         console.log('Successfully added ICE candidate');
       }
     } catch (error: unknown) {
-      // Properly type check the error
       if (error instanceof Error && error.message.includes('Unknown ufrag')) {
-        // This is normal when ICE candidates arrive before SDP
         console.log('ICE candidate arrived before SDP, this is normal');
       } else {
         console.error('Error handling ICE candidate:', error);
@@ -338,20 +332,17 @@ const VideoRoom: React.FC<Props> = ({ socket }) => {
     if (!room_id || !username) return;
 
     const setupSocketListeners = () => {
-      // Join room
       socketRef.current.emit('subscribe', { 
         room: room_id, 
         socketId: socketRef.current.id,
-        username // Add username to help identify peers
+        username
       });
 
-      // Handle new user joining
       socketRef.current.on('new user', async ({ socketId }) => {
         console.log('New user joined:', socketId);
         await createPeerConnection(socketId, true);
       });
 
-      // Handle user leaving
       socketRef.current.on('user left', ({ socketId }) => {
         console.log('User left:', socketId);
         const peer = peersRef.current.get(socketId);
@@ -375,7 +366,6 @@ const VideoRoom: React.FC<Props> = ({ socket }) => {
 
     init();
 
-    // Cleanup
     return () => {
       localStreamRef.current?.getTracks().forEach(track => {
         track.stop();
@@ -396,7 +386,6 @@ const VideoRoom: React.FC<Props> = ({ socket }) => {
     };
   }, [room_id, username, createPeerConnection, handleSDP, handleIceCandidate, initializeMedia]);
 
-  // Media controls
   const toggleVideo = useCallback(() => {
     if (localStream) {
       localStream.getVideoTracks().forEach(track => {
@@ -415,7 +404,6 @@ const VideoRoom: React.FC<Props> = ({ socket }) => {
     }
   }, [localStream]);
 
-  // Add chat message handler
   const handleNewMessage = useCallback((message: string) => {
     const newMessage: Message = {
       id: Date.now().toString(),
@@ -427,17 +415,14 @@ const VideoRoom: React.FC<Props> = ({ socket }) => {
       timestamp: new Date(),
     };
 
-    // Emit the message to the server
     socketRef.current.emit('chat message', {
       ...newMessage,
       room: room_id,
     });
 
-    // Add message to local state
     setMessages(prev => [...prev, newMessage]);
   }, [room_id, username]);
 
-  // Add chat socket listeners
   useEffect(() => {
     if (!socketRef.current) return;
 
@@ -445,14 +430,20 @@ const VideoRoom: React.FC<Props> = ({ socket }) => {
       setMessages(prev => [...prev, message]);
     };
 
+    const handlePreviousMessages = (previousMessages: Message[]) => {
+      setMessages(previousMessages);
+      setIsLoadingMessages(false);
+    };
+
     socketRef.current.on('chat message', handleIncomingMessage);
+    socketRef.current.on('previous messages', handlePreviousMessages);
 
     return () => {
       socketRef.current.off('chat message', handleIncomingMessage);
+      socketRef.current.off('previous messages', handlePreviousMessages);
     };
   }, []);
 
-  // Modify the video controls to only allow toggling own video/audio
   const handleToggleAudio = (participantId: string) => {
     if (participantId === 'local') {
       toggleAudio();
@@ -465,22 +456,17 @@ const VideoRoom: React.FC<Props> = ({ socket }) => {
     }
   };
 
-  // Add screen sharing toggle function
   const toggleScreenShare = useCallback(async () => {
     try {
       if (isScreenSharing) {
-        // Stop screen sharing
         screenStream.current?.getTracks().forEach(track => track.stop());
         screenStream.current = null;
 
-        // Restore camera video track
         if (localStreamRef.current) {
           const videoTrack = localStreamRef.current.getVideoTracks()[0];
-          // Update local video display
           if (localVideoRef.current) {
             localVideoRef.current.srcObject = localStreamRef.current;
           }
-          // Update peer connections
           peersRef.current.forEach(({ connection }) => {
             const sender = connection.getSenders().find(s => s.track?.kind === 'video');
             if (sender) {
@@ -491,7 +477,6 @@ const VideoRoom: React.FC<Props> = ({ socket }) => {
 
         setIsScreenSharing(false);
       } else {
-        // Start screen sharing
         const stream = await navigator.mediaDevices.getDisplayMedia({
           video: true,
           audio: {
@@ -503,14 +488,11 @@ const VideoRoom: React.FC<Props> = ({ socket }) => {
 
         screenStream.current = stream;
 
-        // Create a new stream that includes the screen share video and the original audio
         const newStream = new MediaStream();
         
-        // Add the screen share video track
         const screenTrack = stream.getVideoTracks()[0];
         newStream.addTrack(screenTrack);
         
-        // Add the original audio track if it exists
         if (localStreamRef.current) {
           const audioTrack = localStreamRef.current.getAudioTracks()[0];
           if (audioTrack) {
@@ -518,16 +500,13 @@ const VideoRoom: React.FC<Props> = ({ socket }) => {
           }
         }
 
-        // Update local video display with the new stream
         if (localVideoRef.current) {
           localVideoRef.current.srcObject = newStream;
         }
 
-        // Update the local stream reference
         setLocalStream(newStream);
         localStreamRef.current = newStream;
 
-        // Replace video track in all peer connections
         peersRef.current.forEach(({ connection }) => {
           const sender = connection.getSenders().find(s => s.track?.kind === 'video');
           if (sender) {
@@ -535,7 +514,6 @@ const VideoRoom: React.FC<Props> = ({ socket }) => {
           }
         });
 
-        // Handle when user stops screen sharing through the browser UI
         screenTrack.onended = () => {
           toggleScreenShare();
         };
@@ -548,7 +526,6 @@ const VideoRoom: React.FC<Props> = ({ socket }) => {
     }
   }, [isScreenSharing]);
 
-  // Define proper types for the RemoteVideo component
   interface RemoteVideoProps {
     peerId: string;
     stream: MediaStream | null;
@@ -774,6 +751,7 @@ const VideoRoom: React.FC<Props> = ({ socket }) => {
             messages={messages}
             onSendMessage={handleNewMessage}
             currentUserId={socketRef.current?.id || 'local'}
+            isLoading={isLoadingMessages}
           />
         </Box>
       </MainContent>

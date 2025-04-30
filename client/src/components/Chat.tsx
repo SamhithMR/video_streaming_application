@@ -7,6 +7,7 @@ import {
   Box,
   Avatar,
   Divider,
+  CircularProgress,
 } from '@mui/material';
 import { Send } from '@mui/icons-material';
 import { styled } from '@mui/material/styles';
@@ -25,6 +26,7 @@ interface ChatProps {
   messages: Message[];
   onSendMessage: (content: string) => void;
   currentUserId: string;
+  isLoading?: boolean;
 }
 
 const ChatContainer = styled(Paper)(({ theme }) => ({
@@ -81,7 +83,14 @@ const InputContainer = styled(Box)(({ theme }) => ({
   gap: theme.spacing(1),
 }));
 
-const Chat: React.FC<ChatProps> = ({ messages, onSendMessage, currentUserId }) => {
+const LoadingContainer = styled(Box)(({ theme }) => ({
+  display: 'flex',
+  justifyContent: 'center',
+  alignItems: 'center',
+  padding: theme.spacing(2),
+}));
+
+const Chat: React.FC<ChatProps> = ({ messages, onSendMessage, currentUserId, isLoading = false }) => {
   const [newMessage, setNewMessage] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -107,6 +116,23 @@ const Chat: React.FC<ChatProps> = ({ messages, onSendMessage, currentUserId }) =
     }
   };
 
+  const formatTimestamp = (timestamp: Date) => {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const isToday = date.toDateString() === now.toDateString();
+    
+    if (isToday) {
+      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+    
+    return date.toLocaleDateString([], { 
+      month: 'short', 
+      day: 'numeric',
+      hour: '2-digit', 
+      minute: '2-digit'
+    });
+  };
+
   return (
     <ChatContainer elevation={3}>
       <Box p={2} borderBottom={1} borderColor="divider">
@@ -114,42 +140,52 @@ const Chat: React.FC<ChatProps> = ({ messages, onSendMessage, currentUserId }) =
       </Box>
       
       <MessagesContainer>
-        {messages.map((message) => (
-          <MessageBubble
-            key={message.id}
-            isCurrentUser={message.sender.id === currentUserId}
-          >
-            <Avatar
-              sx={{
-                width: 32,
-                height: 32,
-                bgcolor: message.sender.id === currentUserId ? 'primary.main' : 'secondary.main',
-              }}
-            >
-              {message.sender.name[0].toUpperCase()}
-            </Avatar>
-            <Box sx={{ flex: 1 }}>
-              <Box
-                sx={{
-                  display: 'flex',
-                  justifyContent: message.sender.id === currentUserId ? 'flex-end' : 'flex-start',
-                  mb: 0.5,
-                }}
+        {isLoading ? (
+          <LoadingContainer>
+            <CircularProgress size={24} />
+          </LoadingContainer>
+        ) : (
+          <>
+            {messages.map((message) => (
+              <MessageBubble
+                key={message.id}
+                isCurrentUser={message.sender.id === currentUserId}
               >
-                <Typography variant="caption" color="text.secondary">
-                  {message.sender.name}
-                </Typography>
-              </Box>
-              <MessageContent isCurrentUser={message.sender.id === currentUserId}>
-                <Typography variant="body1" color={message.sender.id != currentUserId ? 'black' : 'primary.contrastText'}>{message.content}</Typography>
-                <Typography variant="caption" color={message.sender.id === currentUserId ? 'primary.contrastText' : 'black'}>
-                  {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </Typography>
-              </MessageContent>
-            </Box>
-          </MessageBubble>
-        ))}
-        <div ref={messagesEndRef} />
+                <Avatar
+                  sx={{
+                    width: 32,
+                    height: 32,
+                    bgcolor: message.sender.id === currentUserId ? 'primary.main' : 'secondary.main',
+                  }}
+                >
+                  {message.sender.name[0].toUpperCase()}
+                </Avatar>
+                <Box sx={{ flex: 1 }}>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      justifyContent: message.sender.id === currentUserId ? 'flex-end' : 'flex-start',
+                      mb: 0.5,
+                    }}
+                  >
+                    <Typography variant="caption" color="text.secondary">
+                      {message.sender.name}
+                    </Typography>
+                  </Box>
+                  <MessageContent isCurrentUser={message.sender.id === currentUserId}>
+                    <Typography variant="body1" color={message.sender.id !== currentUserId ? 'black' : 'primary.contrastText'}>
+                      {message.content}
+                    </Typography>
+                    <Typography variant="caption" color={message.sender.id === currentUserId ? 'primary.contrastText' : 'text.secondary'}>
+                      {formatTimestamp(message.timestamp)}
+                    </Typography>
+                  </MessageContent>
+                </Box>
+              </MessageBubble>
+            ))}
+            <div ref={messagesEndRef} />
+          </>
+        )}
       </MessagesContainer>
 
       <InputContainer>
@@ -163,11 +199,12 @@ const Chat: React.FC<ChatProps> = ({ messages, onSendMessage, currentUserId }) =
           placeholder="Type a message..."
           size="small"
           variant="outlined"
+          disabled={isLoading}
         />
         <IconButton
           color="primary"
           onClick={handleSend}
-          disabled={!newMessage.trim()}
+          disabled={!newMessage.trim() || isLoading}
         >
           <Send />
         </IconButton>

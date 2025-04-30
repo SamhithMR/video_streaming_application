@@ -5,7 +5,6 @@ import cors from 'cors';
 import { registerStreamNamespace } from './sockets/stream';
 import dotenv from 'dotenv';
 
-// Load environment variables
 dotenv.config();
 
 const app = express();

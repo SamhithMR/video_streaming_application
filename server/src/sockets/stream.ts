@@ -1,30 +1,10 @@
 import { Namespace, Socket } from 'socket.io';
-
-interface StreamData {
-  description: RTCSessionDescription;
-  sender: string;
-  to: string;
-  room: string;
-}
-
-interface IceCandidate {
-  candidate: RTCIceCandidate;
-  sender: string;
-  to: string;
-  room: string;
-}
+import { RedisService } from '../services/redis';
+import { Message, StreamData, IceCandidate } from '../types';
 
 interface User {
   id: string;
   name: string;
-}
-
-interface Message {
-  id: string;
-  sender: User;
-  content: string;
-  timestamp: Date;
-  room: string;
 }
 
 interface RoomUser {
@@ -32,29 +12,28 @@ interface RoomUser {
   username: string;
 }
 
-// Keep track of users in rooms
 const rooms = new Map<string, Set<RoomUser>>();
 
 export const registerStreamNamespace = (stream: Namespace) => {
   stream.on('connection', (socket: Socket) => {
     console.log(`Client connected: ${socket.id}`);
 
-    socket.on('subscribe', (data: { room: string; socketId: string; username: string }) => {
-      // Join the room
+    socket.on('subscribe', async (data: { room: string; socketId: string; username: string }) => {
       socket.join(data.room);
       socket.join(data.socketId);
       
-      // Add user to room tracking
       if (!rooms.has(data.room)) {
         rooms.set(data.room, new Set());
       }
       rooms.get(data.room)?.add({ socketId: data.socketId, username: data.username });
       
-      // Notify others in the room
       socket.to(data.room).emit('new user', { 
         socketId: data.socketId,
         username: data.username 
       });
+
+      const previousMessages = await RedisService.getMessages(data.room);
+      socket.emit('previous messages', previousMessages);
 
       console.log(`User ${data.username} (${data.socketId}) joined room: ${data.room}`);
     });
@@ -75,9 +54,11 @@ export const registerStreamNamespace = (stream: Namespace) => {
       });
     });
 
-    socket.on('chat message', (message: Message) => {
+    socket.on('chat message', async (message: Message) => {
       console.log(`Chat message from ${message.sender.name} in room ${message.room}: ${message.content}`);
-      // Broadcast the message to all users in the room except the sender
+      
+      await RedisService.storeMessage(message.room, message);
+      
       socket.to(message.room).emit('chat message', message);
     });
 
@@ -86,7 +67,6 @@ export const registerStreamNamespace = (stream: Namespace) => {
     });
 
     socket.on('disconnect', () => {
-      // Find and remove user from all rooms they were in
       rooms.forEach((users, room) => {
         const user = Array.from(users).find(u => u.socketId === socket.id);
         if (user) {
@@ -99,19 +79,16 @@ export const registerStreamNamespace = (stream: Namespace) => {
   const handleUserDisconnection = (socket: Socket, room: string, socketId: string) => {
     const roomUsers = rooms.get(room);
     if (roomUsers) {
-      // Remove user from room tracking
       roomUsers.forEach(user => {
         if (user.socketId === socketId) {
           roomUsers.delete(user);
         }
       });
       
-      // If room is empty, remove it
       if (roomUsers.size === 0) {
         rooms.delete(room);
       }
       
-      // Notify others in the room
       socket.to(room).emit('user left', { socketId });
       console.log(`User ${socketId} left room: ${room}`);
     }
